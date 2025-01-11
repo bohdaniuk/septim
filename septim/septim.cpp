@@ -1,36 +1,50 @@
 #define CURL_STATICLIB
-#include "septim.h"
-#include <curl/curl.h>
-using namespace std;
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include "httpFunc.h" 
 
 int main() {
+    // ----------------------------------------------------------------------------------
     sqlite3* db;
     int rc;
+
     // DB OPENING
     rc = sqlite3_open("septim.db", &db);
-
     if (rc) {
-        std::cerr << "DB Error: " << sqlite3_errmsg(db) << endl;
+        std::cerr << "DB Error: " << sqlite3_errmsg(db) << std::endl;
         sqlite3_close(db);
         return 1;
     }
+    // ----------------------------------------------------------------------------------
 
-    CURL* curl;
+    std::string targetUserID = "soultaker";
+    time_t actualTimestamp = 173000000;
+    auto filteredMessageIDs = getActualID(targetUserID, actualTimestamp);
 
-    curl = curl_easy_init();
-    curl_easy_cleanup(curl);
-    //unsigned int user_id = 1;
+    // Output filtered MessageIDs
+    std::cout << "Filtered MessageIDs for user '" << targetUserID << "':\n";
+    for (const auto& messageID : filteredMessageIDs) {
+        std::cout << messageID << std::endl;
+    }
 
-    //time_t unix = 1703984450;
+    // Iterate over each filtered message ID
+    for (const auto& messageID : filteredMessageIDs) {
+        // Fetch and parse the data
+        auto data = GetMessageData(messageID);
 
-    //double weekly = getReport(db, getStartOfWeek(unix), unix);
-    //cout << "Weekly income between: " << unixToString(getStartOfWeek(unix))
-    //    << " and " << unixToString(unix) << endl;
-    //cout << "Weekly income: " << weekly << endl;
+        if (data.has_value()) {
+            const auto& messageData = data.value();
+            messageData.Print();
+        }
+        else {
+            std::cerr << "Failed to retrieve data for MessageID: " << messageID << std::endl;
+        }
+    }
 
+
+    // ----------------------------------------------------------------------------------
 
     // DB CLOSING
     sqlite3_close(db);
-    return 0;
     return 0;
 }

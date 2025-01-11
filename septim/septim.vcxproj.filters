@@ -32,5 +32,8 @@
     <ClInclude Include="..\dependencies\headers\util.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\dependencies\headers\httpFunc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
