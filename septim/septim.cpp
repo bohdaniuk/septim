@@ -2,6 +2,7 @@
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include "httpFunc.h" 
+#include <sqliteFunc.h>
 
 int main() {
     // ----------------------------------------------------------------------------------
@@ -35,6 +36,8 @@ int main() {
         if (data.has_value()) {
             const auto& messageData = data.value();
             messageData.Print();
+
+            addTransaction(db, messageData.messageID, messageData.userID, messageData.amount, messageData.categoryID, messageData.message, messageData.unixTimestamp);
         }
         else {
             std::cerr << "Failed to retrieve data for MessageID: " << messageID << std::endl;

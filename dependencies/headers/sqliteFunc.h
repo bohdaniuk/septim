@@ -42,32 +42,27 @@ void addUser(sqlite3* db, string username, string hashed_password, string email)
 
 
 
-void addTransaction(sqlite3* db, unsigned int user_id, unsigned int category_int, double amount, time_t date_unix, const std::string& description) {
+void addTransaction(sqlite3* db, const std::string& message_id, const std::string& user_id,
+    double amount, unsigned int category_id, const std::string& message,
+    time_t unix_time) {
     sqlite3_stmt* stmt;
-    std::string sql = "INSERT INTO Transactions (user_id, category_id, amount, date, date_unix, description) VALUES (?, ?, ?, ?, ?, ?);";
+    const char* sql = "INSERT INTO Transactions (MessageID, UserID, Amount, CategoryID, Message, Unix) "
+        "VALUES (?, ?, ?, ?, ?, ?);";
 
-    int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0);
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
     if (rc != SQLITE_OK) {
         std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        std::cerr << "SQL statement: " << sql << std::endl;
         return;
     }
-    sqlite3_bind_int(stmt, 1, user_id);
-    sqlite3_bind_int(stmt, 2, category_int);
-    sqlite3_bind_double(stmt, 3, amount);
 
-    // Convert time_t to a string (e.g., "YYYY-MM-DD HH:MM:SS")
-    struct tm timeInfo;
-    localtime_s(&timeInfo, &date_unix); // Convert to local time
-    char buffer[20];
-    std::strftime(buffer, sizeof(buffer), "%d-%m-%Y %H:%M:%S", &timeInfo);
-
-    // Bind the date as a string
-    sqlite3_bind_text(stmt, 4, buffer, -1, SQLITE_STATIC);
-
-
-    sqlite3_bind_int64(stmt, 5, date_unix);
-    // Bind description
-    sqlite3_bind_text(stmt, 6, description.c_str(), -1, SQLITE_STATIC);
+    // Bind parameters according to the table structure
+    sqlite3_bind_text(stmt, 1, message_id.c_str(), -1, SQLITE_STATIC);  // MessageID
+    sqlite3_bind_text(stmt, 2, user_id.c_str(), -1, SQLITE_STATIC);     // UserID
+    sqlite3_bind_double(stmt, 3, amount);                               // Amount
+    sqlite3_bind_int(stmt, 4, category_id);                             // CategoryID
+    sqlite3_bind_text(stmt, 5, message.c_str(), -1, SQLITE_STATIC);     // Message
+    sqlite3_bind_int64(stmt, 6, unix_time);                             // Unix
 
     // Execute the statement
     rc = sqlite3_step(stmt);
