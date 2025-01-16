@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <locale>
 #include <codecvt>
+#include <stdexcept>
 
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userData) {
@@ -26,17 +27,30 @@ struct MessageData {
 
     // Method to initialize the struct from a JSON object
     static MessageData FromJSON(const nlohmann::json& json) {
-        const auto& itemJson = json.at("Item"); // Access the "Item" field !!!!!!!!!!!!!!!!!!!
+        if (!json.contains("Item")) {
+            throw std::runtime_error("Missing 'Item' key in JSON response");
+        }
 
+        const auto& itemJson = json.at("Item");
         MessageData data;
-        data.userID = itemJson.at("UserID").get<std::string>();
+
+        if (itemJson.contains("UserID")) {
+            data.userID = itemJson.at("UserID").get<std::string>();
+        }
+        else {
+            throw std::runtime_error("Missing 'UserID' key in 'Item'");
+        }
+
+        // Repeat for other fields with appropriate type conversions
         data.message = itemJson.at("Message").get<std::string>();
         data.categoryID = itemJson.at("CategoryID").get<int>();
         data.amount = itemJson.at("Amount").get<double>();
         data.messageID = itemJson.at("MessageID").get<std::string>();
         data.unixTimestamp = itemJson.at("Unix").get<int64_t>();
+
         return data;
     }
+
 
     // For debugging or displaying
     void Print() const {
@@ -109,42 +123,42 @@ std::string Base64Decode(const std::string& encoded) {
         decodeTable[base64Chars[i]] = static_cast<int>(i);
     }
 
-    size_t padding = 0;
-    size_t length = encoded.size();
-
-    if (encoded.length() >= 2 && encoded[length - 1] == '=') {
-        padding++;
-        if (encoded[length - 2] == '=') {
-            padding++;
-        }
+    // Add padding only if necessary
+    std::string input = encoded;
+    size_t remainder = input.size() % 4;
+    if (remainder > 0) {
+        input.append(4 - remainder, '=');
     }
 
-    for (size_t i = 0; i < length; i += 4) {
-        int n = (decodeTable[encoded[i]] << 18) +
-            (decodeTable[encoded[i + 1]] << 12) +
-            ((i + 2 < length ? decodeTable[encoded[i + 2]] : 0) << 6) +
-            (i + 3 < length ? decodeTable[encoded[i + 3]] : 0);
+    for (size_t i = 0; i < input.size(); i += 4) {
+        int n = (decodeTable[input[i]] << 18) +
+            (decodeTable[input[i + 1]] << 12) +
+            ((i + 2 < input.size() && input[i + 2] != '=') ? (decodeTable[input[i + 2]] << 6) : 0) +
+            ((i + 3 < input.size() && input[i + 3] != '=') ? decodeTable[input[i + 3]] : 0);
 
-        decoded += (n >> 16) & 0xFF;
-        if (i + 2 < length && encoded[i + 2] != '=') {
-            decoded += (n >> 8) & 0xFF;
+        decoded += static_cast<char>((n >> 16) & 0xFF);
+        if (i + 2 < input.size() && input[i + 2] != '=') {
+            decoded += static_cast<char>((n >> 8) & 0xFF);
         }
-        if (i + 3 < length && encoded[i + 3] != '=') {
-            decoded += n & 0xFF;
+        if (i + 3 < input.size() && input[i + 3] != '=') {
+            decoded += static_cast<char>(n & 0xFF);
         }
     }
 
     return decoded;
 }
 
+
+
+
+
 // Decodes MessageID and returns userID, timestamp, and randomHex
 std::optional<std::tuple<std::string, int, std::string>> DecodeMessageID(const std::string& messageID) {
-    // Split the MessageID into parts based on underscores
     size_t firstUnderscore = messageID.find("_");
     size_t secondUnderscore = messageID.find("_", firstUnderscore + 1);
 
     if (firstUnderscore == std::string::npos || secondUnderscore == std::string::npos) {
-        return std::nullopt; // Invalid format
+        return std::nullopt;
     }
 
     try {
@@ -152,25 +166,19 @@ std::optional<std::tuple<std::string, int, std::string>> DecodeMessageID(const s
         std::string timestampHex = messageID.substr(firstUnderscore + 1, secondUnderscore - firstUnderscore - 1);
         std::string randomHex = messageID.substr(secondUnderscore + 1);
 
-        // Decode userID
-        std::string userID = Base64Decode(userIDEncoded + "==");  // Ensure padding is added
+        std::string userID = Base64Decode(userIDEncoded);
 
-        // Remove the last symbol from the userID
-        if (!userID.empty()) {
-            userID.pop_back();  // Remove the last character
-        }
-
-        // Convert timestamp from hex to int
+        // Convert timestamp
         int timestamp = std::stoi(timestampHex, nullptr, 16);
-
-        std::cout << "Decoded MessageID - UserID: " << userID << ", Timestamp: " << timestamp << ", Random: " << randomHex << std::endl;
 
         return std::make_tuple(userID, timestamp, randomHex);
     }
-    catch (...) {
-        return std::nullopt; // Error in decoding
+    catch (const std::exception& e) {
+        std::cerr << "Error decoding MessageID: " << e.what() << std::endl;
+        return std::nullopt;
     }
 }
+
 
 
 // Filters MessageIDs for a specific user

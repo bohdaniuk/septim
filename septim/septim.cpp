@@ -1,10 +1,15 @@
-#define CURL_STATICLIB
+﻿#define CURL_STATICLIB
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
-#include "httpFunc.h" 
+#include "httpFunc.h"
 #include <sqliteFunc.h>
 
 int main() {
+    // ----------------------------------------------------------------------------------
+    // Setting the console to UTF-8
+    
+    std::locale::global(std::locale("uk_UA.UTF-8"));
+
     // ----------------------------------------------------------------------------------
     sqlite3* db;
     int rc;
@@ -17,8 +22,11 @@ int main() {
         return 1;
     }
     // ----------------------------------------------------------------------------------
+    std::string encoded = "RHJheWJpbg_67894914_013e";
+    std::cout << "Decoded: " << Base64Decode(encoded) << std::endl;
 
-    std::string targetUserID = "soultaker";
+
+    std::string targetUserID = "Draybin";
     time_t actualTimestamp = 173000000;
     auto filteredMessageIDs = getActualID(targetUserID, actualTimestamp);
 
@@ -35,15 +43,14 @@ int main() {
 
         if (data.has_value()) {
             const auto& messageData = data.value();
-            messageData.Print();
 
-            addTransaction(db, messageData.messageID, messageData.userID, messageData.amount, messageData.categoryID, messageData.message, messageData.unixTimestamp);
+            addTransaction(db, messageData.messageID, messageData.userID, messageData.amount, 
+                messageData.categoryID, messageData.message, messageData.unixTimestamp);
         }
         else {
             std::cerr << "Failed to retrieve data for MessageID: " << messageID << std::endl;
         }
     }
-
 
     // ----------------------------------------------------------------------------------
 

@@ -3,24 +3,25 @@
 #include <sqlite3.h>
 #include <ctime>
 #include <optional>
-using namespace std;
+#include <locale>
+#include <codecvt>
 
 
 int callback(void* data, int argc, char** argv, char** colName) {
     for (int i = 0; i < argc; i++) {
-        cout << colName[i] << ": " << (argv[i] ? argv[i] : "NULL") << "\n";
+        std::cout << colName[i] << ": " << (argv[i] ? argv[i] : "NULL") << "\n";
     }
-    cout << "\n";
+    std::cout << "\n";
     return 0;
 }
 
-void addUser(sqlite3* db, string username, string hashed_password, string email) {
+void addUser(sqlite3* db, std::string username, std::string hashed_password, std::string email) {
     sqlite3_stmt* stmt;
-    string sql = "INSERT INTO Users (username, password, email) VALUES (?, ?, ?);";
+    std::string sql = "INSERT INTO Users (username, password, email) VALUES (?, ?, ?);";
 
     int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0);
     if (rc != SQLITE_OK) {
-        cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << endl;
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
         return;
     }
 
@@ -31,16 +32,14 @@ void addUser(sqlite3* db, string username, string hashed_password, string email)
     // Execute the query
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-        cerr << "Execution failed: " << sqlite3_errmsg(db) << endl;
+        std::cerr << "Execution failed: " << sqlite3_errmsg(db) << std::endl;
     }
     else {
-        cout << "User inserted successfully\n";
+        std::cout << "User inserted successfully\n";
     }
 
     sqlite3_finalize(stmt);
 }
-
-
 
 void addTransaction(sqlite3* db, const std::string& message_id, const std::string& user_id,
     double amount, unsigned int category_id, const std::string& message,
@@ -49,20 +48,26 @@ void addTransaction(sqlite3* db, const std::string& message_id, const std::strin
     const char* sql = "INSERT INTO Transactions (MessageID, UserID, Amount, CategoryID, Message, Unix) "
         "VALUES (?, ?, ?, ?, ?, ?);";
 
-    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
+    // Prepare the SQL statement
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
         std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
-        std::cerr << "SQL statement: " << sql << std::endl;
         return;
     }
 
-    // Bind parameters according to the table structure
-    sqlite3_bind_text(stmt, 1, message_id.c_str(), -1, SQLITE_STATIC);  // MessageID
-    sqlite3_bind_text(stmt, 2, user_id.c_str(), -1, SQLITE_STATIC);     // UserID
-    sqlite3_bind_double(stmt, 3, amount);                               // Amount
-    sqlite3_bind_int(stmt, 4, category_id);                             // CategoryID
-    sqlite3_bind_text(stmt, 5, message.c_str(), -1, SQLITE_STATIC);     // Message
-    sqlite3_bind_int64(stmt, 6, unix_time);                             // Unix
+    // Bind parameters
+    rc = sqlite3_bind_text(stmt, 1, message_id.c_str(), -1, SQLITE_TRANSIENT);  // MessageID
+    if (rc != SQLITE_OK) goto BIND_ERROR;
+    rc = sqlite3_bind_text(stmt, 2, user_id.c_str(), -1, SQLITE_TRANSIENT);     // UserID
+    if (rc != SQLITE_OK) goto BIND_ERROR;
+    rc = sqlite3_bind_double(stmt, 3, amount);                                 // Amount
+    if (rc != SQLITE_OK) goto BIND_ERROR;
+    rc = sqlite3_bind_int(stmt, 4, category_id);                               // CategoryID
+    if (rc != SQLITE_OK) goto BIND_ERROR;
+    rc = sqlite3_bind_text(stmt, 5, message.c_str(), -1, SQLITE_TRANSIENT);    // Message
+    if (rc != SQLITE_OK) goto BIND_ERROR;
+    rc = sqlite3_bind_int64(stmt, 6, unix_time);                               // Unix
+    if (rc != SQLITE_OK) goto BIND_ERROR;
 
     // Execute the statement
     rc = sqlite3_step(stmt);
@@ -73,17 +78,23 @@ void addTransaction(sqlite3* db, const std::string& message_id, const std::strin
         std::cout << "Transaction added successfully\n";
     }
 
-    // Finalize the statement
+    sqlite3_finalize(stmt);
+    return;
+
+BIND_ERROR:
+    std::cerr << "Error binding parameters: " << sqlite3_errmsg(db) << std::endl;
     sqlite3_finalize(stmt);
 }
 
-void deleteRow(sqlite3* db, const string& table, const string& column, const string& value) {
+
+
+void deleteRow(sqlite3* db, const std::string& table, const std::string& column, const std::string& value) {
     sqlite3_stmt* stmt;
-    string sql = "DELETE FROM " + table + " WHERE " + column + " = ?;";
+    std::string sql = "DELETE FROM " + table + " WHERE " + column + " = ?;";
 
     int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0);
     if (rc != SQLITE_OK) {
-        cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << endl;
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
         return;
     }
 
@@ -91,22 +102,22 @@ void deleteRow(sqlite3* db, const string& table, const string& column, const str
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-        cerr << "Execution failed: " << sqlite3_errmsg(db) << endl;
+        std::cerr << "Execution failed: " << sqlite3_errmsg(db) << std::endl;
     }
     else {
-        cout << "Row deleted successfully\n";
+        std::cout << "Row deleted successfully\n";
     }
 
     sqlite3_finalize(stmt);
 }
 
-void selectTable(sqlite3* db, string object, string place) {
+void selectTable(sqlite3* db, std::string object, std::string place) {
     sqlite3_stmt* stmt;
-    string sql = "SELECT " + object + " FROM '" + place + "';";
+    std::string sql = "SELECT " + object + " FROM '" + place + "';";
 
     int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0);
     if (rc != SQLITE_OK) {
-        cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << endl;
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
         return;
     }
 
@@ -127,34 +138,34 @@ void selectTable(sqlite3* db, string object, string place) {
     }
 
     if (rc != SQLITE_DONE) {
-        cerr << "Execution failed: " << sqlite3_errmsg(db) << endl;
+        std::cerr << "Execution failed: " << sqlite3_errmsg(db) << std::endl;
     }
 
     sqlite3_finalize(stmt);
 }
 
 
-optional<string> getItem(sqlite3* db, const string& table, const string& column, const string& conditionColumn, const string& conditionValue) {
+std::optional<std::string> getItem(sqlite3* db, const std::string& table, const std::string& column, const std::string& conditionColumn, const std::string& conditionValue) {
     sqlite3_stmt* stmt;
-    string sql = "SELECT " + column + " FROM " + table + " WHERE " + conditionColumn + " = ?;";
+    std::string sql = "SELECT " + column + " FROM " + table + " WHERE " + conditionColumn + " = ?;";
 
     int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0);
     if (rc != SQLITE_OK) {
-        cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << endl;
-        return nullopt;
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return std::nullopt;
     }
 
     sqlite3_bind_text(stmt, 1, conditionValue.c_str(), -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
     if (rc == SQLITE_ROW) {
-        string result = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        std::string result = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
         sqlite3_finalize(stmt);
         return result;
     }
     else {
-        cerr << "No data found or execution failed: " << sqlite3_errmsg(db) << endl;
+        std::cerr << "No data found or execution failed: " << sqlite3_errmsg(db) << std::endl;
         sqlite3_finalize(stmt);
-        return nullopt;
+        return std::nullopt;
     }
 }
