@@ -13,5 +13,5 @@
 #include <ctime>
 #include <Windows.h>
 #include <curl/curl.h>
-#include <C:\Users\gtavp\source\repos\septim\dependencies\nlohmann\json.hpp>
+#include <json.hpp>
 #include <iomanip>

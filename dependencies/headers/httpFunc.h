@@ -4,7 +4,7 @@
 #include <sqlite3.h>
 #include <ctime>
 #include <curl/curl.h>
-#include <C:\Users\gtavp\source\repos\septim\dependencies\nlohmann\json.hpp>
+#include <json.hpp>
 #include <iomanip>
 #include <locale>
 #include <codecvt>
